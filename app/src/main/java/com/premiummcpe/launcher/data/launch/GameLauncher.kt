@@ -11,11 +11,6 @@ import androidx.core.content.FileProvider
 import com.premiummcpe.launcher.data.download.VersionStorage
 import java.io.File
 
-/**
- * 1) Microsoft sign-in in launcher (UI gate)
- * 2) Official APK into version slot (user import — not Play Store download)
- * 3) PLAY installs/launches THAT APK from launcher storage
- */
 object GameLauncher {
 
     const val PKG_RELEASE = "com.mojang.minecraftpe"
@@ -23,7 +18,12 @@ object GameLauncher {
 
     data class LaunchResult(val ok: Boolean, val message: String)
 
-    fun isMinecraftInstalled(context: Context, preview: Boolean = false): Boolean {
+    fun hasVersionApk(context: Context, versionId: String): Boolean {
+        val apk = VersionStorage.apkFile(context, versionId)
+        return apk.exists() && apk.length() > 1024L
+    }
+
+    fun isPackageInstalled(context: Context, preview: Boolean = false): Boolean {
         val pkg = if (preview) PKG_PREVIEW else PKG_RELEASE
         return try {
             context.packageManager.getPackageInfo(pkg, 0)
@@ -33,34 +33,31 @@ object GameLauncher {
         }
     }
 
-    fun launchVersion(context: Context, versionId: String, preview: Boolean = false): LaunchResult {
+    fun installVersionApk(context: Context, versionId: String): LaunchResult {
         val apk = VersionStorage.apkFile(context, versionId)
         if (!apk.exists() || apk.length() < 1024L) {
-            return LaunchResult(
-                false,
-                "Is version ka APK launcher mein nahi. Versions → Install → official Minecraft APK. Play Store auto-download nahi."
-            )
+            return LaunchResult(false, "Pehle is version pe Install se official APK save karo.")
         }
-        val installResult = installApkFromFile(context, apk)
-        if (!installResult.ok) {
-            val launched = launchInstalledPackage(context, preview)
-            return if (launched.ok) {
-                LaunchResult(true, "Opening game package…")
-            } else installResult
+        return installApkFromFile(context, apk)
+    }
+
+    fun launchVersion(context: Context, versionId: String, preview: Boolean = false): LaunchResult {
+        if (!hasVersionApk(context, versionId)) {
+            return LaunchResult(false, "Version APK launcher mein nahi. Install → official APK.")
         }
-        return launchInstalledPackage(context, preview).let {
-            if (it.ok) LaunchResult(true, "Launching game…")
-            else LaunchResult(true, "Install dialog open — Allow ke baad dubara PLAY")
+        if (!isPackageInstalled(context, preview) && !isPackageInstalled(context, false)) {
+            val r = installVersionApk(context, versionId)
+            return if (r.ok) {
+                LaunchResult(true, "Install dialog — Allow. Phir dubara PLAY.")
+            } else r
         }
+        return launchInstalledPackage(context, preview)
     }
 
     fun launchDefaultFromLauncher(context: Context): LaunchResult {
         val ids = VersionStorage.listInstalledIds(context)
         if (ids.isEmpty()) {
-            return LaunchResult(
-                false,
-                "Koi version launcher mein nahi. Versions → Install → official APK. Play Store open nahi hoga."
-            )
+            return LaunchResult(false, "Koi version save nahi. Versions → Install → APK, phir PLAY.")
         }
         val id = ids.first()
         val meta = VersionStorage.readMeta(context, id)
@@ -77,30 +74,26 @@ object GameLauncher {
             launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             try {
                 context.startActivity(launch)
-                LaunchResult(true, "Launching game…")
+                LaunchResult(true, "Game start…")
             } catch (e: Exception) {
                 LaunchResult(false, e.message ?: "Launch failed")
             }
         } else {
-            LaunchResult(false, "Game package nahi mila. Versions se APK Install karo, phir PLAY.")
+            LaunchResult(false, "Game package nahi. Versions se APK Install → Allow.")
         }
     }
 
     fun installApkFromFile(context: Context, apk: File): LaunchResult {
         if (!apk.exists()) return LaunchResult(false, "APK missing")
         return try {
-            val uri = FileProvider.getUriForFile(
-                context,
-                "${context.packageName}.fileprovider",
-                apk
-            )
+            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", apk)
             val intent = Intent(Intent.ACTION_VIEW).apply {
                 setDataAndType(uri, "application/vnd.android.package-archive")
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
             context.startActivity(intent)
-            LaunchResult(true, "Install dialog — Allow, phir PLAY")
+            LaunchResult(true, "Install dialog open")
         } catch (e: Exception) {
             try {
                 installWithSession(context, apk)
@@ -125,7 +118,7 @@ object GameLauncher {
             val pi = PendingIntent.getBroadcast(context, sessionId, callback, flags)
             session.commit(pi.intentSender)
         }
-        return LaunchResult(true, "Installing version APK…")
+        return LaunchResult(true, "Installing…")
     }
 
     fun openPackWithMinecraft(context: Context, uri: Uri): LaunchResult {
@@ -136,9 +129,9 @@ object GameLauncher {
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
             context.startActivity(Intent.createChooser(intent, "Open with Minecraft"))
-            LaunchResult(true, "Choose Minecraft to import pack")
+            LaunchResult(true, "Pack import")
         } catch (e: Exception) {
-            LaunchResult(false, e.message ?: "Could not open pack")
+            LaunchResult(false, e.message ?: "Pack fail")
         }
     }
 }
