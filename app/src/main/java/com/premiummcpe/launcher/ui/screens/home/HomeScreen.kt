@@ -1,11 +1,15 @@
 package com.premiummcpe.launcher.ui.screens.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -14,9 +18,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.premiummcpe.launcher.data.auth.AuthState
+import com.premiummcpe.launcher.data.launch.GameLauncher
+import com.premiummcpe.launcher.data.model.VersionCatalog
 import com.premiummcpe.launcher.ui.components.*
 import com.premiummcpe.launcher.ui.theme.*
 
@@ -25,8 +32,11 @@ fun HomeScreen(
     onNavigateToVersions: () -> Unit,
     onNavigateToSettings: () -> Unit
 ) {
+    val context = LocalContext.current
     var showLoginGate by remember { mutableStateOf(false) }
+    var status by remember { mutableStateOf<String?>(null) }
     val signedIn = AuthState.isSignedIn
+    val mcInstalled = remember { GameLauncher.isMinecraftInstalled(context) }
 
     if (showLoginGate) {
         LoginGateDialog(
@@ -35,205 +45,135 @@ fun HomeScreen(
         )
     }
 
+    fun tryPlay() {
+        if (!AuthState.isSignedIn) {
+            showLoginGate = true
+            return
+        }
+        val r = GameLauncher.launchMinecraft(context, preview = false)
+        status = r.message
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(SurfaceDark)
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp)
+            .padding(horizontal = 16.dp)
     ) {
         Spacer(modifier = Modifier.height(16.dp))
-
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column {
-                Text(
-                    text = "PremiumMCPE",
-                    style = MaterialTheme.typography.headlineLarge,
-                    color = OnSurface,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "Bedrock Launcher",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = OnSurfaceVariant
-                )
+                Text("PremiumMCPE", style = MaterialTheme.typography.headlineLarge, color = OnSurface, fontWeight = FontWeight.Bold)
+                Text("Bedrock · Levi-style", style = MaterialTheme.typography.bodyMedium, color = OnSurfaceVariant)
             }
             IconButton(onClick = onNavigateToSettings) {
-                Icon(
-                    imageVector = Icons.Rounded.Settings,
-                    contentDescription = "Settings",
-                    tint = OnSurfaceVariant
-                )
+                Icon(Icons.Rounded.Settings, null, tint = OnSurfaceVariant)
             }
         }
 
-        Spacer(modifier = Modifier.height(28.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(20.dp))
                 .background(
-                    Brush.linearGradient(
-                        colors = listOf(
-                            Color(0xFF1E3A1A),
-                            Color(0xFF0D1F0B),
-                            SurfaceCard
-                        )
+                    Brush.horizontalGradient(
+                        listOf(Color(0xFF1B5E20), Color(0xFF0D1F0B), SurfaceCard)
                     )
                 )
-                .padding(24.dp)
+                .padding(20.dp)
         ) {
             Column {
                 Text(
-                    text = if (signedIn) "Ready to play?" else "Sign in to unlock Play",
+                    if (signedIn) "Play Minecraft" else "Sign in to Play",
                     style = MaterialTheme.typography.titleLarge,
-                    color = OnSurface
+                    color = OnSurface,
+                    fontWeight = FontWeight.Bold
                 )
-                Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = if (signedIn)
-                        "Browse the version library and launch after Xbox sign-in.\nOwn Minecraft on Google Play / Microsoft."
-                    else
-                        "Version list is open. Play stays locked until you sign in with Xbox.\nYou must own Bedrock legally.",
+                    when {
+                        !signedIn -> "Xbox / Microsoft sign-in required"
+                        !mcInstalled -> "Install official Minecraft from Play Store (own the game)"
+                        else -> "Launch official Minecraft on this device"
+                    },
                     style = MaterialTheme.typography.bodyMedium,
                     color = OnSurfaceVariant
                 )
-                Spacer(modifier = Modifier.height(20.dp))
-                PrimaryButton(
-                    text = if (signedIn) "Open version library" else "Sign in with Microsoft",
-                    onClick = {
-                        if (signedIn) onNavigateToVersions()
-                        else showLoginGate = true
-                    },
-                    icon = if (signedIn) Icons.Rounded.Download else Icons.Rounded.Lock
-                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Button(
+                        onClick = { tryPlay() },
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentPrimary),
+                        modifier = Modifier.height(48.dp)
+                    ) {
+                        Icon(Icons.Filled.PlayArrow, null)
+                        Spacer(Modifier.width(6.dp))
+                        Text("PLAY", fontWeight = FontWeight.Bold)
+                    }
+                    OutlinedButton(onClick = onNavigateToVersions) {
+                        Text("Versions")
+                    }
+                }
+                status?.let {
+                    Spacer(Modifier = Modifier.height(8.dp))
+                    Text(it, color = AccentPrimary, style = MaterialTheme.typography.bodySmall)
+                }
             }
         }
 
-        Spacer(modifier = Modifier.height(28.dp))
+        Spacer(modifier = Modifier.height(22.dp))
 
-        SectionHeader(title = "Quick Actions")
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            QuickActionCard(
-                icon = Icons.Rounded.Apps,
-                title = "Versions",
-                subtitle = "Library + Play gate",
-                modifier = Modifier.weight(1f),
-                onClick = onNavigateToVersions
-            )
-            QuickActionCard(
-                icon = Icons.Rounded.Person,
-                title = "Accounts",
-                subtitle = "Xbox sign-in",
-                modifier = Modifier.weight(1f),
-                onClick = { showLoginGate = true }
-            )
+        SectionHeader(title = "Versions", actionText = "All", onAction = onNavigateToVersions)
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            items(VersionCatalog.all.take(12)) { v ->
+                PremiumCard(
+                    modifier = Modifier.width(140.dp),
+                    onClick = onNavigateToVersions
+                ) {
+                    Text(v.versionName, fontWeight = FontWeight.Bold, color = OnSurface)
+                    Text(v.channel, color = AccentPrimary, style = MaterialTheme.typography.labelMedium)
+                }
+            }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(22.dp))
 
+        SectionHeader(title = "Quick")
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            QuickActionCard(
-                icon = Icons.Rounded.Folder,
-                title = "Content",
-                subtitle = "Worlds & Packs",
-                modifier = Modifier.weight(1f),
-                onClick = { }
-            )
-            QuickActionCard(
-                icon = Icons.Rounded.Extension,
-                title = "Mods",
-                subtitle = "Native & external",
-                modifier = Modifier.weight(1f),
-                onClick = { }
-            )
+            AssistChip(onClick = onNavigateToVersions, label = { Text("Versions") }, leadingIcon = {
+                Icon(Icons.Rounded.Apps, null, Modifier.size(18.dp))
+            })
+            AssistChip(onClick = { showLoginGate = true }, label = { Text("Xbox Login") }, leadingIcon = {
+                Icon(Icons.Rounded.Person, null, Modifier.size(18.dp))
+            })
+            AssistChip(onClick = {
+                val r = GameLauncher.launchMinecraft(context)
+                status = r.message
+            }, label = { Text("Open MC") }, leadingIcon = {
+                Icon(Icons.Filled.PlayArrow, null, Modifier.size(18.dp))
+            })
         }
 
-        Spacer(modifier = Modifier.height(28.dp))
-
-        SectionHeader(title = "Features")
-
-        FeatureRow(
-            icon = Icons.Rounded.Lock,
-            title = "Xbox gate",
-            description = "No launch until Microsoft / Xbox sign-in in this launcher"
-        )
-        FeatureRow(
-            icon = Icons.Rounded.Apps,
-            title = "Version library",
-            description = "Browse Release & Preview list anytime"
-        )
-        FeatureRow(
-            icon = Icons.Rounded.Shield,
-            title = "Legal ownership",
-            description = "Users must own Bedrock on Play / Microsoft Store"
-        )
-        FeatureRow(
-            icon = Icons.Rounded.SwapHoriz,
-            title = "Multi account",
-            description = "Sign in / out from Accounts tab"
+        Spacer(modifier = Modifier.height(22.dp))
+        SectionHeader(title = "Status")
+        Text(
+            "Minecraft installed: ${if (mcInstalled) "Yes" else "No (Play Store)"}\n" +
+                "Signed in: ${if (signedIn) AuthState.currentAccount?.gamertag else "No"}",
+            style = MaterialTheme.typography.bodyMedium,
+            color = OnSurfaceVariant
         )
 
         Spacer(modifier = Modifier.height(100.dp))
-    }
-}
-
-@Composable
-private fun QuickActionCard(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    title: String,
-    subtitle: String,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    PremiumCard(modifier = modifier, onClick = onClick) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = AccentPrimary,
-            modifier = Modifier.size(28.dp)
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-        Text(text = title, style = MaterialTheme.typography.titleMedium, color = OnSurface)
-        Text(text = subtitle, style = MaterialTheme.typography.bodySmall, color = OnSurfaceVariant)
-    }
-}
-
-@Composable
-private fun FeatureRow(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    title: String,
-    description: String
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(44.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(SurfaceCard),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(imageVector = icon, contentDescription = null, tint = AccentPrimary, modifier = Modifier.size(22.dp))
-        }
-        Spacer(modifier = Modifier.width(14.dp))
-        Column {
-            Text(text = title, style = MaterialTheme.typography.titleMedium, color = OnSurface)
-            Text(text = description, style = MaterialTheme.typography.bodySmall, color = OnSurfaceVariant)
-        }
     }
 }
