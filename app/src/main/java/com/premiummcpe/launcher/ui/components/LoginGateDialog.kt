@@ -1,13 +1,32 @@
 package com.premiummcpe.launcher.ui.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.SportsEsports
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -18,7 +37,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.premiummcpe.launcher.data.auth.AuthState
 import com.premiummcpe.launcher.data.auth.MicrosoftAuth
-import com.premiummcpe.launcher.ui.theme.*
+import com.premiummcpe.launcher.ui.theme.AccentPrimary
+import com.premiummcpe.launcher.ui.theme.OnSurface
+import com.premiummcpe.launcher.ui.theme.OnSurfaceVariant
+import com.premiummcpe.launcher.ui.theme.SurfaceCard
+import com.premiummcpe.launcher.ui.theme.WarningOrange
 
 @Composable
 fun LoginGateDialog(
@@ -27,55 +50,63 @@ fun LoginGateDialog(
 ) {
     val context = LocalContext.current
     var gamertag by remember { mutableStateOf("") }
-    var openedBrowser by remember { mutableStateOf(false) }
+    var step by remember { mutableStateOf(0) }
 
     Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = RoundedCornerShape(20.dp),
-            color = SurfaceCard,
-            tonalElevation = 8.dp
-        ) {
+        Surface(shape = RoundedCornerShape(20.dp), color = SurfaceCard, tonalElevation = 8.dp) {
             Column(
                 modifier = Modifier.padding(24.dp).fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Box(
+                Icon(
+                    Icons.Rounded.Lock,
+                    null,
+                    tint = AccentPrimary,
                     modifier = Modifier
-                        .size(64.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(AccentPrimary.copy(alpha = 0.2f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.Rounded.Lock, null, tint = AccentPrimary, modifier = Modifier.size(32.dp))
-                }
-                Spacer(modifier = Modifier.height(16.dp))
+                        .size(48.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(AccentPrimary.copy(alpha = 0.2f))
+                        .padding(10.dp)
+                )
+                Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    "Microsoft / Xbox sign-in",
+                    "Microsoft / Xbox Login",
                     style = MaterialTheme.typography.titleLarge,
                     color = OnSurface,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    "1) Open Microsoft login (real browser)\n2) Sign in with account that owns Minecraft\n3) Enter Gamertag to unlock Play",
+                    when (step) {
+                        0 -> "Step 1: Microsoft account browser mein open (real login page)."
+                        else -> "Step 2: Login ke baad Xbox Gamertag likho → Confirm."
+                    },
                     style = MaterialTheme.typography.bodyMedium,
                     color = OnSurfaceVariant,
                     textAlign = TextAlign.Center
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 PrimaryButton(
-                    text = if (openedBrowser) "Browser opened — sign in there" else "Open Microsoft Login",
+                    text = "1. Open Microsoft Login",
                     onClick = {
                         MicrosoftAuth.openMicrosoftLogin(context)
-                        openedBrowser = true
+                        step = 1
                     },
                     icon = Icons.Rounded.SportsEsports
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                SecondaryButton(
+                    text = "Xbox.com Login",
+                    onClick = {
+                        MicrosoftAuth.openXboxLogin(context)
+                        step = 1
+                    }
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 OutlinedTextField(
                     value = gamertag,
                     onValueChange = { gamertag = it },
-                    label = { Text("Your Gamertag") },
+                    label = { Text("Xbox Gamertag") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
@@ -89,13 +120,15 @@ fun LoginGateDialog(
                 Spacer(modifier = Modifier.height(12.dp))
                 Button(
                     onClick = {
-                        AuthState.completeSignIn(gamertag.ifBlank { "Xbox Player" })
+                        if (gamertag.isBlank()) return@Button
+                        AuthState.completeSignIn(gamertag.trim())
                         onSignedIn()
                     },
+                    enabled = gamertag.isNotBlank(),
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = AccentPrimary)
                 ) {
-                    Text("Confirm & Unlock Play", fontWeight = FontWeight.Bold)
+                    Text("2. Confirm & Unlock Play", fontWeight = FontWeight.Bold)
                 }
                 TextButton(onClick = onDismiss) {
                     Text("Cancel", color = OnSurfaceVariant)
@@ -123,10 +156,10 @@ fun XboxRequiredBanner(
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text("Play locked", style = MaterialTheme.typography.titleMedium, color = OnSurface)
-                Text("Sign in with Microsoft / Xbox", style = MaterialTheme.typography.bodySmall, color = OnSurfaceVariant)
+                Text("Microsoft login required", style = MaterialTheme.typography.bodySmall, color = OnSurfaceVariant)
             }
             TextButton(onClick = onSignInClick) {
-                Text("Sign in", color = AccentPrimary)
+                Text("Login", color = AccentPrimary)
             }
         }
     }
