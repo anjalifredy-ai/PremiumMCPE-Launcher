@@ -8,7 +8,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.premiummcpe.launcher.data.auth.AuthState
 import com.premiummcpe.launcher.ui.components.*
 import com.premiummcpe.launcher.ui.theme.*
 
@@ -24,6 +25,16 @@ fun HomeScreen(
     onNavigateToVersions: () -> Unit,
     onNavigateToSettings: () -> Unit
 ) {
+    var showLoginGate by remember { mutableStateOf(false) }
+    val signedIn = AuthState.isSignedIn
+
+    if (showLoginGate) {
+        LoginGateDialog(
+            onDismiss = { showLoginGate = false },
+            onSignedIn = { showLoginGate = false }
+        )
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -79,21 +90,27 @@ fun HomeScreen(
         ) {
             Column {
                 Text(
-                    text = "Ready to play?",
+                    text = if (signedIn) "Ready to play?" else "Sign in to unlock Play",
                     style = MaterialTheme.typography.titleLarge,
                     color = OnSurface
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = "No version selected yet.\nImport official Minecraft APK to start.",
+                    text = if (signedIn)
+                        "Browse the version library and launch after Xbox sign-in.\nOwn Minecraft on Google Play / Microsoft."
+                    else
+                        "Version list is open. Play stays locked until you sign in with Xbox.\nYou must own Bedrock legally.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = OnSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(20.dp))
                 PrimaryButton(
-                    text = "Import Minecraft APK",
-                    onClick = onNavigateToVersions,
-                    icon = Icons.Rounded.Download
+                    text = if (signedIn) "Open version library" else "Sign in with Microsoft",
+                    onClick = {
+                        if (signedIn) onNavigateToVersions()
+                        else showLoginGate = true
+                    },
+                    icon = if (signedIn) Icons.Rounded.Download else Icons.Rounded.Lock
                 )
             }
         }
@@ -109,16 +126,16 @@ fun HomeScreen(
             QuickActionCard(
                 icon = Icons.Rounded.Apps,
                 title = "Versions",
-                subtitle = "Manage installs",
+                subtitle = "Library + Play gate",
                 modifier = Modifier.weight(1f),
                 onClick = onNavigateToVersions
             )
             QuickActionCard(
-                icon = Icons.Rounded.Folder,
-                title = "Content",
-                subtitle = "Worlds & Packs",
+                icon = Icons.Rounded.Person,
+                title = "Accounts",
+                subtitle = "Xbox sign-in",
                 modifier = Modifier.weight(1f),
-                onClick = { }
+                onClick = { showLoginGate = true }
             )
         }
 
@@ -129,16 +146,16 @@ fun HomeScreen(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             QuickActionCard(
-                icon = Icons.Rounded.Extension,
-                title = "Mods",
-                subtitle = "Native & external",
+                icon = Icons.Rounded.Folder,
+                title = "Content",
+                subtitle = "Worlds & Packs",
                 modifier = Modifier.weight(1f),
                 onClick = { }
             )
             QuickActionCard(
-                icon = Icons.Rounded.Person,
-                title = "Accounts",
-                subtitle = "Xbox switch",
+                icon = Icons.Rounded.Extension,
+                title = "Mods",
+                subtitle = "Native & external",
                 modifier = Modifier.weight(1f),
                 onClick = { }
             )
@@ -149,24 +166,24 @@ fun HomeScreen(
         SectionHeader(title = "Features")
 
         FeatureRow(
+            icon = Icons.Rounded.Lock,
+            title = "Xbox gate",
+            description = "No launch until Microsoft / Xbox sign-in in this launcher"
+        )
+        FeatureRow(
+            icon = Icons.Rounded.Apps,
+            title = "Version library",
+            description = "Browse Release & Preview list anytime"
+        )
+        FeatureRow(
             icon = Icons.Rounded.Shield,
-            title = "Version Isolation",
-            description = "Each version runs in its own clean workspace"
-        )
-        FeatureRow(
-            icon = Icons.Rounded.Layers,
-            title = "Content Manager",
-            description = "Worlds, packs, screenshots & servers in one place"
-        )
-        FeatureRow(
-            icon = Icons.Rounded.Extension,
-            title = "Native Mods Ready",
-            description = "SO module loading foundation (Levi-style)"
+            title = "Legal ownership",
+            description = "Users must own Bedrock on Play / Microsoft Store"
         )
         FeatureRow(
             icon = Icons.Rounded.SwapHoriz,
-            title = "Multi Account",
-            description = "Switch Xbox accounts before launching"
+            title = "Multi account",
+            description = "Sign in / out from Accounts tab"
         )
 
         Spacer(modifier = Modifier.height(100.dp))
@@ -181,10 +198,7 @@ private fun QuickActionCard(
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
-    PremiumCard(
-        modifier = modifier,
-        onClick = onClick
-    ) {
+    PremiumCard(modifier = modifier, onClick = onClick) {
         Icon(
             imageVector = icon,
             contentDescription = null,
@@ -192,16 +206,8 @@ private fun QuickActionCard(
             modifier = Modifier.size(28.dp)
         )
         Spacer(modifier = Modifier.height(12.dp))
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            color = OnSurface
-        )
-        Text(
-            text = subtitle,
-            style = MaterialTheme.typography.bodySmall,
-            color = OnSurfaceVariant
-        )
+        Text(text = title, style = MaterialTheme.typography.titleMedium, color = OnSurface)
+        Text(text = subtitle, style = MaterialTheme.typography.bodySmall, color = OnSurfaceVariant)
     }
 }
 
@@ -212,9 +218,7 @@ private fun FeatureRow(
     description: String
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 10.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
@@ -224,25 +228,12 @@ private fun FeatureRow(
                 .background(SurfaceCard),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = AccentPrimary,
-                modifier = Modifier.size(22.dp)
-            )
+            Icon(imageVector = icon, contentDescription = null, tint = AccentPrimary, modifier = Modifier.size(22.dp))
         }
         Spacer(modifier = Modifier.width(14.dp))
         Column {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                color = OnSurface
-            )
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodySmall,
-                color = OnSurfaceVariant
-            )
+            Text(text = title, style = MaterialTheme.typography.titleMedium, color = OnSurface)
+            Text(text = description, style = MaterialTheme.typography.bodySmall, color = OnSurfaceVariant)
         }
     }
 }
