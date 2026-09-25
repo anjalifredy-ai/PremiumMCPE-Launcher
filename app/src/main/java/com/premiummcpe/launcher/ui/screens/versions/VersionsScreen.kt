@@ -1,5 +1,8 @@
 package com.premiummcpe.launcher.ui.screens.versions
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -7,6 +10,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.*
@@ -16,24 +20,64 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.premiummcpe.launcher.data.auth.AuthState
 import com.premiummcpe.launcher.data.download.InstallStatus
 import com.premiummcpe.launcher.data.download.VersionInstallManager
+import com.premiummcpe.launcher.data.download.VersionStorage
 import com.premiummcpe.launcher.data.model.VersionCatalog
 import com.premiummcpe.launcher.ui.components.*
 import com.premiummcpe.launcher.ui.theme.*
 
 @Composable
 fun VersionsScreen() {
+    val context = LocalContext.current
     var search by remember { mutableStateOf("") }
     var channelFilter by remember { mutableStateOf("All") }
     var showLoginGate by remember { mutableStateOf(false) }
-    var playToast by remember { mutableStateOf<String?>(null) }
+    var statusMessage by remember { mutableStateOf<String?>(null) }
+    var pendingInstallId by remember { mutableStateOf<String?>(null) }
 
     val installMap = VersionInstallManager.statusMap
+
+    LaunchedEffect(Unit) {
+        VersionInstallManager.init(context)
+        VersionInstallManager.rescan()
+    }
+
+    val apkPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        val id = pendingInstallId
+        pendingInstallId = null
+        if (uri == null || id == null) {
+            statusMessage = "Install cancelled"
+            return@rememberLauncherForActivityResult
+        }
+        statusMessage = "Installing APK…"
+        VersionInstallManager.installFromUri(id, uri) { result ->
+            result.fold(
+                onSuccess = { meta ->
+                    val pkg = meta.packageName ?: "?"
+                    val ver = meta.apkVersionName ?: "?"
+                    val mb = meta.fileSize / (1024.0 * 1024.0)
+                    statusMessage = "Installed: $pkg $ver (%.1f MB)".format(mb)
+                },
+                onFailure = { e ->
+                    statusMessage = "Install failed: ${e.message}"
+                }
+            )
+        }
+    }
+
+    fun startRealInstall(versionId: String) {
+        pendingInstallId = versionId
+        apkPicker.launch("application/vnd.android.package-archive")
+    }
+
     val catalog = remember { VersionCatalog.all }
     val filtered = remember(search, channelFilter) {
         catalog.filter { e ->
@@ -44,6 +88,7 @@ fun VersionsScreen() {
             matchSearch && matchChannel
         }
     }
+
     val signedIn = AuthState.isSignedIn
 
     if (showLoginGate) {
@@ -62,7 +107,7 @@ fun VersionsScreen() {
         Spacer(modifier = Modifier.height(16.dp))
         SectionHeader(title = "Versions")
         Text(
-            text = "Mojo-style flow for Bedrock: Download → install → Play. Play needs Xbox sign-in. Own the game legally.",
+            text = "Real install: Install → pick official Minecraft APK → saved on device. Play after Xbox sign-in.",
             style = MaterialTheme.typography.bodyMedium,
             color = OnSurfaceVariant,
             modifier = Modifier.padding(bottom = 12.dp)
@@ -73,18 +118,9 @@ fun VersionsScreen() {
                 onSignInClick = { showLoginGate = true },
                 modifier = Modifier.padding(bottom = 12.dp)
             )
-        } else {
-            AuthState.currentAccount?.let { acc ->
-                Text(
-                    text = "Signed in as ${acc.gamertag}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = SuccessGreen,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-            }
         }
 
-        playToast?.let { msg ->
+        statusMessage?.let { msg ->
             Text(
                 text = msg,
                 style = MaterialTheme.typography.bodySmall,
@@ -131,43 +167,48 @@ fun VersionsScreen() {
             contentPadding = PaddingValues(bottom = 100.dp)
         ) {
             items(filtered, key = { it.id }) { entry ->
-                val status = installMap[entry.id] ?: InstallStatus.NotInstalled
-                MojoVersionRow(
+                val status = installMap[entry.id] ?: if (VersionStorage.isInstalled(context, entry.id)) {
+                    InstallStatus.Installed
+                } else InstallStatus.NotInstalled
+                val meta = if (status is InstallStatus.Installed) {
+                    VersionStorage.readMeta(context, entry.id)
+                } else null
+
+                RealVersionRow(
                     title = entry.title,
-                    subtitle = "${entry.channel} · ${entry.versionName}",
+                    subtitle = buildString {
+                        append(entry.channel)
+                        append(" · ")
+                        append(entry.versionName)
+                        meta?.apkVersionName?.let { append(" · APK $it") }
+                        meta?.let { append(" · %.0f MB".format(it.fileSize / (1024.0 * 1024.0))) }
+                    },
                     status = status,
-                    onDownload = { VersionInstallManager.startDownload(entry.id) },
+                    onInstall = { startRealInstall(entry.id) },
                     onPlay = {
                         when {
                             !AuthState.isSignedIn -> showLoginGate = true
                             status !is InstallStatus.Installed ->
-                                playToast = "Pehle version download / install karo"
-                            else ->
-                                playToast = "Launch: ${entry.versionName} (native pipeline baad mein)"
+                                statusMessage = "Pehle official APK install karo"
+                            else -> {
+                                val path = VersionStorage.apkFile(context, entry.id).absolutePath
+                                statusMessage = "Ready: $path (launch engine next)"
+                            }
                         }
                     },
-                    onCancel = { VersionInstallManager.cancel(entry.id) }
+                    onUninstall = {
+                        VersionInstallManager.uninstall(entry.id)
+                        statusMessage = "Removed ${entry.versionName}"
+                    }
                 )
             }
 
             item {
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    text = "Note: Progress UI is Mojo-style. Real Bedrock APK needs official/licensed source or Import — not pirate mirrors.",
+                    text = "Tip: Official Minecraft APK Install pe choose karo. Har version slot alag folder mein save hota hai.",
                     style = MaterialTheme.typography.bodySmall,
                     color = OnSurfaceMuted
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                SecondaryButton(
-                    text = "Import official APK from device",
-                    onClick = {
-                        filtered.firstOrNull()?.let {
-                            VersionInstallManager.markInstalledFromImport(it.id)
-                            playToast = "Import: marked installed (file picker next)"
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    icon = Icons.Rounded.Download
                 )
             }
         }
@@ -175,13 +216,13 @@ fun VersionsScreen() {
 }
 
 @Composable
-private fun MojoVersionRow(
+private fun RealVersionRow(
     title: String,
     subtitle: String,
     status: InstallStatus,
-    onDownload: () -> Unit,
+    onInstall: () -> Unit,
     onPlay: () -> Unit,
-    onCancel: () -> Unit
+    onUninstall: () -> Unit
 ) {
     PremiumCard(modifier = Modifier.fillMaxWidth()) {
         Row(
@@ -209,22 +250,18 @@ private fun MojoVersionRow(
                 )
                 Text(text = subtitle, style = MaterialTheme.typography.bodySmall, color = OnSurfaceVariant)
                 when (status) {
-                    is InstallStatus.Downloading -> {
+                    is InstallStatus.Installing -> {
                         Spacer(modifier = Modifier.height(6.dp))
                         LinearProgressIndicator(
-                            progress = { status.progress },
+                            progress = { status.progress.coerceIn(0.05f, 0.95f) },
                             modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
                             color = AccentPrimary,
                             trackColor = SurfaceElevated
                         )
-                        Text(
-                            text = "Downloading ${(status.progress * 100).toInt()}%",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = AccentPrimary
-                        )
+                        Text("Installing…", style = MaterialTheme.typography.labelMedium, color = AccentPrimary)
                     }
                     is InstallStatus.Installed ->
-                        Text("Installed", style = MaterialTheme.typography.labelMedium, color = SuccessGreen)
+                        Text("Installed on device", style = MaterialTheme.typography.labelMedium, color = SuccessGreen)
                     is InstallStatus.Failed ->
                         Text(status.message, style = MaterialTheme.typography.labelMedium, color = ErrorRed)
                     else ->
@@ -234,16 +271,19 @@ private fun MojoVersionRow(
             Spacer(modifier = Modifier.width(8.dp))
             when (status) {
                 is InstallStatus.NotInstalled, is InstallStatus.Failed -> {
-                    FilledTonalButton(onClick = onDownload) {
+                    FilledTonalButton(onClick = onInstall) {
                         Icon(Icons.Rounded.Download, null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("Download")
+                        Text("Install")
                     }
                 }
-                is InstallStatus.Downloading -> {
-                    TextButton(onClick = onCancel) { Text("Cancel", color = OnSurfaceVariant) }
+                is InstallStatus.Installing -> {
+                    CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 3.dp, color = AccentPrimary)
                 }
                 is InstallStatus.Installed -> {
+                    IconButton(onClick = onUninstall) {
+                        Icon(Icons.Rounded.Delete, "Uninstall", tint = OnSurfaceMuted)
+                    }
                     IconButton(
                         onClick = onPlay,
                         modifier = Modifier.size(48.dp).clip(RoundedCornerShape(50)).background(AccentPrimary)
