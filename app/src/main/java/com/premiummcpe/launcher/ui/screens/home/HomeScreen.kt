@@ -50,7 +50,7 @@ fun HomeScreen(
             showLoginGate = true
             return
         }
-        val r = GameLauncher.launchMinecraft(context, preview = false)
+        val r = GameLauncher.launchDefaultFromLauncher(context)
         status = r.message
     }
 
@@ -69,7 +69,7 @@ fun HomeScreen(
         ) {
             Column {
                 Text("PremiumMCPE", style = MaterialTheme.typography.headlineLarge, color = OnSurface, fontWeight = FontWeight.Bold)
-                Text("Bedrock · Levi-style", style = MaterialTheme.typography.bodyMedium, color = OnSurfaceVariant)
+                Text("Bedrock launcher", style = MaterialTheme.typography.bodyMedium, color = OnSurfaceVariant)
             }
             IconButton(onClick = onNavigateToSettings) {
                 Icon(Icons.Rounded.Settings, null, tint = OnSurfaceVariant)
@@ -82,25 +82,20 @@ fun HomeScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(20.dp))
-                .background(
-                    Brush.horizontalGradient(
-                        listOf(Color(0xFF1B5E20), Color(0xFF0D1F0B), SurfaceCard)
-                    )
-                )
+                .background(Brush.horizontalGradient(listOf(Color(0xFF1B5E20), Color(0xFF0D1F0B), SurfaceCard)))
                 .padding(20.dp)
         ) {
             Column {
                 Text(
-                    if (signedIn) "Play Minecraft" else "Sign in to Play",
+                    if (signedIn) "Play from launcher" else "Sign in to Play",
                     style = MaterialTheme.typography.titleLarge,
                     color = OnSurface,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
                     when {
-                        !signedIn -> "Xbox / Microsoft sign-in required"
-                        !mcInstalled -> "Install official Minecraft from Play Store (own the game)"
-                        else -> "Launch official Minecraft on this device"
+                        !signedIn -> "Pehle Microsoft / Xbox login"
+                        else -> "Versions mein official APK Install → PLAY (Play Store nahi)"
                     },
                     style = MaterialTheme.typography.bodyMedium,
                     color = OnSurfaceVariant
@@ -116,9 +111,7 @@ fun HomeScreen(
                         Spacer(Modifier.width(6.dp))
                         Text("PLAY", fontWeight = FontWeight.Bold)
                     }
-                    OutlinedButton(onClick = onNavigateToVersions) {
-                        Text("Versions")
-                    }
+                    OutlinedButton(onClick = onNavigateToVersions) { Text("Versions") }
                 }
                 status?.let {
                     Spacer(Modifier = Modifier.height(8.dp))
@@ -128,14 +121,10 @@ fun HomeScreen(
         }
 
         Spacer(modifier = Modifier.height(22.dp))
-
         SectionHeader(title = "Versions", actionText = "All", onAction = onNavigateToVersions)
         LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             items(VersionCatalog.all.take(12)) { v ->
-                PremiumCard(
-                    modifier = Modifier.width(140.dp),
-                    onClick = onNavigateToVersions
-                ) {
+                PremiumCard(modifier = Modifier.width(140.dp), onClick = onNavigateToVersions) {
                     Text(v.versionName, fontWeight = FontWeight.Bold, color = OnSurface)
                     Text(v.channel, color = AccentPrimary, style = MaterialTheme.typography.labelMedium)
                 }
@@ -143,37 +132,12 @@ fun HomeScreen(
         }
 
         Spacer(modifier = Modifier.height(22.dp))
-
-        SectionHeader(title = "Quick")
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            AssistChip(onClick = onNavigateToVersions, label = { Text("Versions") }, leadingIcon = {
-                Icon(Icons.Rounded.Apps, null, Modifier.size(18.dp))
-            })
-            AssistChip(onClick = { showLoginGate = true }, label = { Text("Xbox Login") }, leadingIcon = {
-                Icon(Icons.Rounded.Person, null, Modifier.size(18.dp))
-            })
-            AssistChip(onClick = {
-                val r = GameLauncher.launchMinecraft(context)
-                status = r.message
-            }, label = { Text("Open MC") }, leadingIcon = {
-                Icon(Icons.Filled.PlayArrow, null, Modifier.size(18.dp))
-            })
-        }
-
-        Spacer(modifier = Modifier.height(22.dp))
-        SectionHeader(title = "Status")
+        SectionHeader(title = "Flow")
         Text(
-            "Minecraft installed: ${if (mcInstalled) "Yes" else "No (Play Store)"}\n" +
-                "Signed in: ${if (signedIn) AuthState.currentAccount?.gamertag else "No"}",
+            "1) Microsoft login\n2) Versions → Install (apni official APK)\n3) PLAY → usi APK se install/launch\nPlay Store se game download nahi.",
             style = MaterialTheme.typography.bodyMedium,
             color = OnSurfaceVariant
         )
-
         Spacer(modifier = Modifier.height(100.dp))
     }
 }
