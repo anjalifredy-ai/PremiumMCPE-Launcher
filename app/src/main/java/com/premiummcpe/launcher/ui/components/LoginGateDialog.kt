@@ -11,11 +11,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.premiummcpe.launcher.data.auth.AuthState
+import com.premiummcpe.launcher.data.auth.MicrosoftAuth
 import com.premiummcpe.launcher.ui.theme.*
 
 @Composable
@@ -23,8 +25,9 @@ fun LoginGateDialog(
     onDismiss: () -> Unit,
     onSignedIn: () -> Unit
 ) {
+    val context = LocalContext.current
     var gamertag by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(false) }
+    var openedBrowser by remember { mutableStateOf(false) }
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -33,9 +36,7 @@ fun LoginGateDialog(
             tonalElevation = 8.dp
         ) {
             Column(
-                modifier = Modifier
-                    .padding(24.dp)
-                    .fillMaxWidth(),
+                modifier = Modifier.padding(24.dp).fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Box(
@@ -45,38 +46,36 @@ fun LoginGateDialog(
                         .background(AccentPrimary.copy(alpha = 0.2f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Lock,
-                        contentDescription = null,
-                        tint = AccentPrimary,
-                        modifier = Modifier.size(32.dp)
-                    )
+                    Icon(Icons.Rounded.Lock, null, tint = AccentPrimary, modifier = Modifier.size(32.dp))
                 }
-
                 Spacer(modifier = Modifier.height(16.dp))
-
                 Text(
-                    text = "Xbox sign-in required",
+                    "Microsoft / Xbox sign-in",
                     style = MaterialTheme.typography.titleLarge,
                     color = OnSurface,
                     fontWeight = FontWeight.SemiBold
                 )
-
                 Spacer(modifier = Modifier.height(8.dp))
-
                 Text(
-                    text = "Launch Minecraft only after signing in with the Microsoft account that owns Bedrock. Version list stays visible — Play is locked until login.",
+                    "1) Open Microsoft login (real browser)\n2) Sign in with account that owns Minecraft\n3) Enter Gamertag to unlock Play",
                     style = MaterialTheme.typography.bodyMedium,
                     color = OnSurfaceVariant,
                     textAlign = TextAlign.Center
                 )
-
-                Spacer(modifier = Modifier.height(20.dp))
-
+                Spacer(modifier = Modifier.height(16.dp))
+                PrimaryButton(
+                    text = if (openedBrowser) "Browser opened — sign in there" else "Open Microsoft Login",
+                    onClick = {
+                        MicrosoftAuth.openMicrosoftLogin(context)
+                        openedBrowser = true
+                    },
+                    icon = Icons.Rounded.SportsEsports
+                )
+                Spacer(modifier = Modifier.height(12.dp))
                 OutlinedTextField(
                     value = gamertag,
                     onValueChange = { gamertag = it },
-                    label = { Text("Gamertag (demo)") },
+                    label = { Text("Your Gamertag") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
@@ -87,32 +86,17 @@ fun LoginGateDialog(
                         unfocusedTextColor = OnSurface
                     )
                 )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Text(
-                    text = "Demo login for UI. Later: real Microsoft OAuth in browser / Custom Tabs.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = OnSurfaceMuted,
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                PrimaryButton(
-                    text = if (isLoading) "Signing in…" else "Sign in with Microsoft",
+                Spacer(modifier = Modifier.height(12.dp))
+                Button(
                     onClick = {
-                        isLoading = true
-                        AuthState.signInDemo(gamertag.ifBlank { "Xbox Player" })
-                        isLoading = false
+                        AuthState.completeSignIn(gamertag.ifBlank { "Xbox Player" })
                         onSignedIn()
                     },
-                    icon = Icons.Rounded.SportsEsports,
-                    enabled = !isLoading
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = AccentPrimary)
+                ) {
+                    Text("Confirm & Unlock Play", fontWeight = FontWeight.Bold)
+                }
                 TextButton(onClick = onDismiss) {
                     Text("Cancel", color = OnSurfaceVariant)
                 }
@@ -135,24 +119,11 @@ fun XboxRequiredBanner(
             modifier = Modifier.padding(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = Icons.Rounded.Lock,
-                contentDescription = null,
-                tint = WarningOrange,
-                modifier = Modifier.size(22.dp)
-            )
+            Icon(Icons.Rounded.Lock, null, tint = WarningOrange, modifier = Modifier.size(22.dp))
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Play locked",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = OnSurface
-                )
-                Text(
-                    text = "Sign in with Xbox to launch any version",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = OnSurfaceVariant
-                )
+                Text("Play locked", style = MaterialTheme.typography.titleMedium, color = OnSurface)
+                Text("Sign in with Microsoft / Xbox", style = MaterialTheme.typography.bodySmall, color = OnSurfaceVariant)
             }
             TextButton(onClick = onSignInClick) {
                 Text("Sign in", color = AccentPrimary)
