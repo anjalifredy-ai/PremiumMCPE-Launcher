@@ -28,6 +28,7 @@ import com.premiummcpe.launcher.data.auth.AuthState
 import com.premiummcpe.launcher.data.download.InstallStatus
 import com.premiummcpe.launcher.data.download.VersionInstallManager
 import com.premiummcpe.launcher.data.download.VersionStorage
+import com.premiummcpe.launcher.data.launch.GameLauncher
 import com.premiummcpe.launcher.data.model.VersionCatalog
 import com.premiummcpe.launcher.ui.components.*
 import com.premiummcpe.launcher.ui.theme.*
@@ -92,41 +93,27 @@ fun VersionsScreen() {
     val signedIn = AuthState.isSignedIn
 
     if (showLoginGate) {
-        LoginGateDialog(
-            onDismiss = { showLoginGate = false },
-            onSignedIn = { showLoginGate = false }
-        )
+        LoginGateDialog(onDismiss = { showLoginGate = false }, onSignedIn = { showLoginGate = false })
     }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(SurfaceDark)
-            .padding(horizontal = 20.dp)
+        modifier = Modifier.fillMaxSize().background(SurfaceDark).padding(horizontal = 20.dp)
     ) {
         Spacer(modifier = Modifier.height(16.dp))
         SectionHeader(title = "Versions")
         Text(
-            text = "Real install: Install → pick official Minecraft APK → saved on device. Play after Xbox sign-in.",
+            text = "Install APK slots optional. PLAY launches official Minecraft (Play Store). Sign-in required.",
             style = MaterialTheme.typography.bodyMedium,
             color = OnSurfaceVariant,
             modifier = Modifier.padding(bottom = 12.dp)
         )
 
         if (!signedIn) {
-            XboxRequiredBanner(
-                onSignInClick = { showLoginGate = true },
-                modifier = Modifier.padding(bottom = 12.dp)
-            )
+            XboxRequiredBanner(onSignInClick = { showLoginGate = true }, modifier = Modifier.padding(bottom = 12.dp))
         }
 
         statusMessage?.let { msg ->
-            Text(
-                text = msg,
-                style = MaterialTheme.typography.bodySmall,
-                color = AccentPrimary,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
+            Text(msg, style = MaterialTheme.typography.bodySmall, color = AccentPrimary, modifier = Modifier.padding(bottom = 8.dp))
         }
 
         OutlinedTextField(
@@ -170,45 +157,28 @@ fun VersionsScreen() {
                 val status = installMap[entry.id] ?: if (VersionStorage.isInstalled(context, entry.id)) {
                     InstallStatus.Installed
                 } else InstallStatus.NotInstalled
-                val meta = if (status is InstallStatus.Installed) {
-                    VersionStorage.readMeta(context, entry.id)
-                } else null
+                val meta = if (status is InstallStatus.Installed) VersionStorage.readMeta(context, entry.id) else null
 
                 RealVersionRow(
                     title = entry.title,
                     subtitle = buildString {
-                        append(entry.channel)
-                        append(" · ")
-                        append(entry.versionName)
+                        append(entry.channel); append(" · "); append(entry.versionName)
                         meta?.apkVersionName?.let { append(" · APK $it") }
                         meta?.let { append(" · %.0f MB".format(it.fileSize / (1024.0 * 1024.0))) }
                     },
                     status = status,
                     onInstall = { startRealInstall(entry.id) },
                     onPlay = {
-                        when {
-                            !AuthState.isSignedIn -> showLoginGate = true
-                            status !is InstallStatus.Installed ->
-                                statusMessage = "Pehle official APK install karo"
-                            else -> {
-                                val path = VersionStorage.apkFile(context, entry.id).absolutePath
-                                statusMessage = "Ready: $path (launch engine next)"
-                            }
+                        if (!AuthState.isSignedIn) showLoginGate = true
+                        else {
+                            val r = GameLauncher.launchMinecraft(context, preview = entry.channel == "Preview")
+                            statusMessage = r.message
                         }
                     },
                     onUninstall = {
                         VersionInstallManager.uninstall(entry.id)
                         statusMessage = "Removed ${entry.versionName}"
                     }
-                )
-            }
-
-            item {
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text = "Tip: Official Minecraft APK Install pe choose karo. Har version slot alag folder mein save hota hai.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = OnSurfaceMuted
                 )
             }
         }
@@ -225,14 +195,9 @@ private fun RealVersionRow(
     onUninstall: () -> Unit
 ) {
     PremiumCard(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
-        ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(12.dp))
+                modifier = Modifier.size(48.dp).clip(RoundedCornerShape(12.dp))
                     .background(Brush.linearGradient(listOf(MinecraftGreenDark, MinecraftGreen))),
                 contentAlignment = Alignment.Center
             ) {
@@ -240,32 +205,21 @@ private fun RealVersionRow(
             }
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = OnSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Text(text = subtitle, style = MaterialTheme.typography.bodySmall, color = OnSurfaceVariant)
+                Text(title, style = MaterialTheme.typography.titleMedium, color = OnSurface, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.SemiBold)
+                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = OnSurfaceVariant)
                 when (status) {
                     is InstallStatus.Installing -> {
                         Spacer(modifier = Modifier.height(6.dp))
                         LinearProgressIndicator(
                             progress = { status.progress.coerceIn(0.05f, 0.95f) },
                             modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
-                            color = AccentPrimary,
-                            trackColor = SurfaceElevated
+                            color = AccentPrimary, trackColor = SurfaceElevated
                         )
                         Text("Installing…", style = MaterialTheme.typography.labelMedium, color = AccentPrimary)
                     }
-                    is InstallStatus.Installed ->
-                        Text("Installed on device", style = MaterialTheme.typography.labelMedium, color = SuccessGreen)
-                    is InstallStatus.Failed ->
-                        Text(status.message, style = MaterialTheme.typography.labelMedium, color = ErrorRed)
-                    else ->
-                        Text("Not installed", style = MaterialTheme.typography.labelMedium, color = OnSurfaceMuted)
+                    is InstallStatus.Installed -> Text("Installed on device", style = MaterialTheme.typography.labelMedium, color = SuccessGreen)
+                    is InstallStatus.Failed -> Text(status.message, style = MaterialTheme.typography.labelMedium, color = ErrorRed)
+                    else -> Text("Not installed", style = MaterialTheme.typography.labelMedium, color = OnSurfaceMuted)
                 }
             }
             Spacer(modifier = Modifier.width(8.dp))
@@ -276,18 +230,14 @@ private fun RealVersionRow(
                         Spacer(Modifier.width(4.dp))
                         Text("Install")
                     }
-                }
-                is InstallStatus.Installing -> {
-                    CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 3.dp, color = AccentPrimary)
-                }
-                is InstallStatus.Installed -> {
-                    IconButton(onClick = onUninstall) {
-                        Icon(Icons.Rounded.Delete, "Uninstall", tint = OnSurfaceMuted)
+                    IconButton(onClick = onPlay, modifier = Modifier.size(44.dp).clip(RoundedCornerShape(50)).background(AccentPrimary)) {
+                        Icon(Icons.Filled.PlayArrow, "Play", tint = Color.White)
                     }
-                    IconButton(
-                        onClick = onPlay,
-                        modifier = Modifier.size(48.dp).clip(RoundedCornerShape(50)).background(AccentPrimary)
-                    ) {
+                }
+                is InstallStatus.Installing -> CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 3.dp, color = AccentPrimary)
+                is InstallStatus.Installed -> {
+                    IconButton(onClick = onUninstall) { Icon(Icons.Rounded.Delete, "Uninstall", tint = OnSurfaceMuted) }
+                    IconButton(onClick = onPlay, modifier = Modifier.size(48.dp).clip(RoundedCornerShape(50)).background(AccentPrimary)) {
                         Icon(Icons.Filled.PlayArrow, "Play", tint = Color.White)
                     }
                 }
