@@ -2,110 +2,117 @@
 
 **Premium Minecraft Bedrock Edition (MCPE) Launcher for Android**
 
-Inspired by **LeviLaunchroid** + Official Minecraft Launcher UI aesthetics.
+Inspired by **LeviLaunchroid** + Official Minecraft Launcher UI.
 
 > Clean, modern, high-quality launcher with multi-version isolation, content management, account switching, and mod support foundation.
 
 ---
 
-## Features (Current Scaffold + Roadmap)
+## Features
 
-### Implemented / Scaffolded
-- **Premium Official-style UI** (Jetpack Compose + Material 3)
-  - Dark theme with Minecraft grass-green accents
-  - Smooth animations, glassmorphism cards, bottom navigation
-- **Home Dashboard** – Quick launch, recent versions, news placeholder
-- **Version Manager** – Isolated versions list, add/import APK, rename, delete
-- **Content Hub**
-  - Worlds management (list / backup / export .mcworld)
-  - Resource Packs & Behavior Packs
-  - Screenshots
-  - Servers list
-- **Accounts** – Multiple Xbox / Microsoft account UI (auth placeholder)
-- **Mods** – External mods list + built-in mods placeholder
-- **Settings** – Theme, language, paths, privacy, about
-- **Modern Architecture** – Clean MVVM + Navigation + Room ready
+### UI (Done)
+- Premium dark theme with Minecraft grass-green accents
+- Jetpack Compose + Material 3
+- Smooth cards, bottom navigation, animations
+- Home, Versions, Content, Mods, Accounts, Settings screens
 
-### Planned / To Implement (API & Native)
+### Scaffolded (API / Native to connect later)
+- Version isolation UI
+- Content hub (Worlds, Resource Packs, Behavior Packs, Screenshots, Servers)
+- Multi Xbox account UI
+- Mods list (native SO + external catalog ready)
+- Settings (theme, paths, launch options, privacy)
+
+### Planned (Levi-style full features)
 - Official Minecraft APK import + installation-free launch
-- Full version isolation (separate data directories)
-- Xbox Live / Microsoft account authentication
-- Native SO / Preloader module loading (Levi-style)
+- Full data isolation per version
+- Xbox / Microsoft authentication
+- Native SO / Preloader module loading
 - CurseForge / external mod catalog
-- World tools (level.dat editor, backup)
-- Quick Launch via `minecraft://` URI
-- Foreground service for background stability
-- Gyroscope / overlay mods foundation
+- World tools (level.dat, .mcworld backup)
+- `minecraft://` Quick Launch
+- Foreground service
 
 ---
 
 ## Requirements
 
 - Android 9.0+ (API 28)
-- ARM64 device recommended
-- Legitimate Minecraft Bedrock Edition from Google Play (required for full launch)
+- ARM64 recommended
+- Legitimate Minecraft Bedrock from Google Play (for full launch)
+
+---
+
+## Build APK
+
+### Option 1: GitHub Actions (recommended)
+
+1. Go to repo **Actions** tab
+2. Select **Build APK** workflow
+3. Click **Run workflow**
+4. After success, download artifact **PremiumMCPE-debug-apk**
+
+### Option 2: Android Studio
+
+```bash
+git clone https://github.com/anjalifredy-ai/PremiumMCPE-Launcher.git
+cd PremiumMCPE-Launcher
+```
+
+Open in Android Studio → Sync Gradle → Build → Build APK(s)
+
+Or terminal:
+
+```bash
+./gradlew assembleDebug
+# APK: app/build/outputs/apk/debug/app-debug.apk
+```
 
 ---
 
 ## Tech Stack
 
-- **Language**: Kotlin
-- **UI**: Jetpack Compose + Material 3
-- **Architecture**: MVVM + Single Activity
-- **Navigation**: Navigation Compose
-- **DI**: ready for Hilt / Koin
-- **Storage**: Room + DataStore (ready)
-- **Images**: Coil
-- **Min SDK**: 28 | Target SDK: 35
+| Layer | Tech |
+|-------|------|
+| Language | Kotlin |
+| UI | Jetpack Compose + Material 3 |
+| Navigation | Navigation Compose |
+| Min / Target SDK | 28 / 35 |
+| Architecture | Single Activity + screens |
 
 ---
 
 ## Project Structure
 
 ```
-app/
-├── src/main/java/com/premiummcpe/launcher/
-│   ├── MainActivity.kt
-│   ├── PremiumMCPEApp.kt
-│   ├── ui/
-│   │   ├── theme/          # Colors, Typography, Theme
-│   │   ├── components/     # Reusable premium components
-│   │   ├── screens/        # Home, Versions, Content, Mods, Accounts, Settings
-│   │   └── navigation/
-│   ├── data/               # Models, Repository stubs
-│   ├── viewmodel/
-│   └── util/
-├── res/
-└── AndroidManifest.xml
-```
-
----
-
-## Getting Started
-
-1. Clone the repo
-2. Open in **Android Studio** (latest recommended)
-3. Sync Gradle
-4. Run on device / emulator (API 28+)
-
-```bash
-git clone https://github.com/anjalifredy-ai/PremiumMCPE-Launcher.git
+app/src/main/java/com/premiummcpe/launcher/
+├── MainActivity.kt
+├── PremiumMCPEApp.kt
+├── data/model/Models.kt
+└── ui/
+    ├── theme/          # Color, Type, Theme
+    ├── components/     # PremiumCard, buttons, VersionCard
+    ├── navigation/     # NavGraph + bottom bar
+    └── screens/
+        ├── home/
+        ├── versions/
+        ├── content/
+        ├── mods/
+        ├── accounts/
+        └── settings/
 ```
 
 ---
 
 ## License
 
-Apache License 2.0 (same spirit as LeviLaunchroid)
+Apache License 2.0
 
----
+## Credits
 
-## Credits & Inspiration
+- LeviMC / LiteLDev – LeviLaunchroid inspiration
+- Official Minecraft design language
 
-- LeviMC / LiteLDev – LeviLaunchroid
-- Official Minecraft Launcher design language
-- Minecraft community
+**Made for the Bedrock community**
 
-**Made with ❤️ for the Bedrock community**
-
-> Note: This is a high-quality foundation. Full native launching, account auth, and mod loading require additional native work and legitimate Minecraft APK. API integration will be added later as planned.
+> This is a solid premium UI foundation. Full native launching and mod loading need additional work and a legitimate Minecraft APK.
